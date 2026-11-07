@@ -130,6 +130,11 @@ if [ -r "$SELF_DIR/fm-timeout-lib.sh" ]; then
   # shellcheck source=bin/fm-timeout-lib.sh
   . "$SELF_DIR/fm-timeout-lib.sh"
 fi
+# The timing library is the single owner of the millisecond clock; its
+# EPOCHREALTIME reader accepts either decimal separator, which matters on a host
+# whose locale supplies a comma.
+# shellcheck source=bin/fm-timing-lib.sh
+. "$SELF_DIR/fm-timing-lib.sh"
 
 FM_LINT_WORKER_RUN_PID=
 FM_LINT_WORKER_ARGS=()
@@ -139,15 +144,6 @@ fm_lint_worker_stop() {
   kill "$FM_LINT_WORKER_RUN_PID" 2>/dev/null || true
   wait "$FM_LINT_WORKER_RUN_PID" 2>/dev/null || true
   FM_LINT_WORKER_RUN_PID=
-}
-
-fm_lint_now_ms() {
-  if [ -n "${EPOCHREALTIME:-}" ]; then
-    local seconds=${EPOCHREALTIME%.*} micros=${EPOCHREALTIME#*.}
-    printf '%s\n' "$((seconds * 1000 + 10#${micros:0:3}))"
-  else
-    printf '%s\n' "$(($(date +%s) * 1000))"
-  fi
 }
 
 # Names are listed only for signal numbers that agree on Linux and macOS; any
@@ -278,7 +274,7 @@ fm_lint_run_root() {  # <index> <path> <output-dir> <shard-index>
   local fallback_secs
   local final_follow_sources=${FM_LINT_INTERNAL_FOLLOW_SOURCES:-1}
   local -a fallback_args
-  start_ms=$(fm_lint_now_ms)
+  start_ms=$(fm_timing_now_ms)
   if [ -n "${FM_LINT_INTERNAL_ROOTS_LOG:-}" ]; then
     printf 'begin\t%s\t%s\t%s\t%s\t%s\n' \
       "$index" "$path" "$shard_index" "${FM_LINT_INTERNAL_MODE:-}" "$start_ms" \
@@ -297,7 +293,7 @@ fm_lint_run_root() {  # <index> <path> <output-dir> <shard-index>
   # The retry spends what is left of this root's one deadline rather than a
   # fresh one, so both attempts together still fit the budget CI sized its job
   # timeout around.
-  fallback_secs=$(( (start_ms + FM_LINT_INTERNAL_ROOT_SECS * 1000 - $(fm_lint_now_ms)) / 1000 ))
+  fallback_secs=$(( (start_ms + FM_LINT_INTERNAL_ROOT_SECS * 1000 - $(fm_timing_now_ms)) / 1000 ))
   if [ "$reason" = memory ] \
     && [ "${FM_LINT_INTERNAL_FOLLOW_SOURCES:-1}" -eq 1 ] \
     && [ "${FM_LINT_INTERNAL_BOUNDED:-none}" != none ] \
@@ -336,7 +332,7 @@ fm_lint_run_root() {  # <index> <path> <output-dir> <shard-index>
     rss_kib=$(fm_lint_root_rss "$rss_file")
     cat "$root_out" "$root_err" >> "$output_dir/shard.$shard_index.out"
   fi
-  end_ms=$(fm_lint_now_ms)
+  end_ms=$(fm_timing_now_ms)
   duration_ms=$((end_ms - start_ms))
   if [ -n "${FM_LINT_INTERNAL_ROOTS_LOG:-}" ]; then
     printf 'end\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
