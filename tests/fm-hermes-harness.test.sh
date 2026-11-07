@@ -16,6 +16,56 @@ set -u
 . "$ROOT/bin/fm-hermes-process-lib.sh"
 # shellcheck source=bin/fm-agent-process-lib.sh
 . "$ROOT/bin/fm-agent-process-lib.sh"
+
+# An absent or unreadable argv is a non-match: it returns 1 and leaves the
+# calling shell running. Stock Bash 3.2 aborts a `set -u` shell that expands
+# "${array[@]}" over an empty array, so the /proc and ps readers share one
+# empty-array guard ahead of the identity loop.
+test_empty_argv_is_a_non_match_under_stock_bash() {
+  local bash_bin=/bin/bash probe_root probe out expected
+  if [ ! -x "$bash_bin" ]; then
+    pass "an absent argv is a non-match under stock Bash (skipped without /bin/bash)"
+    return 0
+  fi
+  probe_root=$(fm_test_tmproot fm-hermes-empty-argv) \
+    || fail "could not create the stock-bash probe root"
+  probe=$probe_root/empty-argv-probe.sh
+  cat > "$probe" <<'SH'
+set -u
+. "$1/bin/fm-hermes-process-lib.sh"
+fm_hermes_process_matches ""
+[ "$?" -eq 1 ] || exit 3
+printf 'empty ps argv rc 1\n'
+fm_hermes_process_matches "" 2147483646
+[ "$?" -eq 1 ] || exit 3
+printf 'unreadable pid argv rc 1\n'
+fm_hermes_process_matches "node /tmp/server.js"
+[ "$?" -eq 1 ] || exit 3
+printf 'flattened non-hermes argv rc 1\n'
+fm_hermes_process_matches "node /opt/hermes-agent/ui-tui/dist/entry.js" || exit 4
+printf 'flattened hermes argv matches\n'
+printf 'caller still running\n'
+SH
+  out=$("$bash_bin" "$probe" "$ROOT") \
+    || fail "an absent argv aborted the set -u caller: $out"
+  expected='empty ps argv rc 1
+unreadable pid argv rc 1
+flattened non-hermes argv rc 1
+flattened hermes argv matches
+caller still running'
+  assert_equals "$expected" "$out" \
+    "an absent or unreadable argv must be a non-match, not a fatal empty-array expansion"
+  pass "an absent argv is a non-match that leaves the set -u caller running"
+}
+
+# CI's stock macOS Bash lane sets FM_TEST_STOCK_BASH=1 to run just the bash-3.2
+# empty-argv identity regression. The rest of this file is not a 3.2 snapshot
+# suite. Adding another stock-bash case means adding it here, not to ci.yml.
+if [ -n "${FM_TEST_STOCK_BASH:-}" ]; then
+  fm_test_run test_empty_argv_is_a_non_match_under_stock_bash
+  exit 0
+fi
+
 TMP_ROOT=$(fm_test_tmproot fm-hermes-harness)
 unset HERMES_HOME HERMES_MANAGED_DIR
 [ "$(fm_control_interrupt_transport hermes)" = key ] || fail 'interrupt transport'
@@ -49,6 +99,8 @@ native_name=$(ps -o comm= -p "$process_pid")
 kill "$process_pid"
 wait "$process_pid" 2>/dev/null || true
 pass 'worker-only capability and anchored process identity'
+
+test_empty_argv_is_a_non_match_under_stock_bash
 
 mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/profile"
 cat > "$TMP_ROOT/bin/hermes" <<'SH'
