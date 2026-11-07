@@ -305,9 +305,17 @@ wait_until() {  # <polls of 0.1s> <command...>
   return 1
 }
 
-# Time-based wait used for host hand-back. The previous poll-count waits
-# (wait_until 200|250 host_exited, ~20-25s) flake on a slow runner; this
-# helper polls at the same 0.1s interval until the deadline. On timeout of
+# Time-based wait for anything the host must finish: a hand-back, a handled
+# turn, an engine call, or a captain row. `wait_until` counts polls, so its
+# real budget is the count times the cost of one poll on that host, and the
+# host's own arm, turn, and drain forks shrink it exactly where a loaded runner
+# needs it most; the previous poll-count waits (wait_until 200|250 host_exited,
+# ~20-25s) flaked there. A poll's cost is mostly its 0.1s sleep, so it barely
+# grows under load while the host's fork-heavy turn grows several-fold: in CI a
+# 250-poll handled-turn wait expired at ~38s for a turn that had taken 36s,
+# where the same wait needs ~5s on an idle host. This helper polls at the same
+# 0.1s interval until a wall-clock deadline, so the budget does not move with
+# fork cost. On timeout of
 # host_exited it dumps the fixture host log, supervision-host log, health
 # file, and a process tree so a CI failure is diagnosable.
 wait_until_deadline() {  # <seconds> <command...>
@@ -628,7 +636,7 @@ assert_returned_driver_is_caught() {  # <attended|away>
   turn_end "$home"
   wait_until 150 watcher_live "$home" || fail "returned driver: no watcher started"
   append_status "$home" 'measurement driver running' paused
-  wait_until 250 handled_at_least "$home" 1 || fail "returned driver: the paused signal was not handled"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "returned driver: the paused signal was not handled"
   cat > "$home/fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
@@ -825,7 +833,7 @@ park_outcome() {  # <name> <park-seconds>; sets PARK_OUTCOME to boundary or hand
   FM_SUPERVISION_HOST_PARK_SECONDS=$2 FM_SUPERVISION_HOST_TURN_TIMEOUT=26990 FM_SUPERVISION_ENGINE_GRACE=10 start_host "$home"
   wait_until 150 watcher_live "$home" || fail "$1: the host never started a watcher cycle"
   append_status "$home" 'one close'
-  wait_until 250 sh -c '[ -s "$1/host.rc" ] || grep -q "	handled	" "$1/state/.supervision-host.log" 2>/dev/null' _ "$home" \
+  wait_until_deadline 60 sh -c '[ -s "$1/host.rc" ] || grep -q "	handled	" "$1/state/.supervision-host.log" 2>/dev/null' _ "$home" \
     || fail "$1: the close was neither handled nor handed to main: $(cat "$home/state/.supervision-host.log")"
   if host_exited "$home"; then
     grep -q '^supervision-host: cycle boundary - ' "$home/host.out" || fail "$1: the host exited without the boundary: $(cat "$home/host.out")"

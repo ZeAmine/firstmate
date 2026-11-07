@@ -233,7 +233,7 @@ test_claude_stop_hook_rewakes_main_for_an_inbox_note_after_a_handled_wake() {
   turn_end "$home"
   wait_until 150 watcher_live "$home" || fail "inbox after handled: the Stop hook never started a watcher cycle: $(cat "$home/hook.err" 2>/dev/null)"
   append_status "$home" 'step one'
-  wait_until 600 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "inbox after handled: the routine wake was not handled on the engine: $(cat "$home/state/.supervision-host.log")"
   wait_until 150 watcher_live "$home" || fail "inbox after handled: the host is not parked on a live successor"
   sleep 2
@@ -294,7 +294,7 @@ test_claude_stop_hook_runs_the_host_without_the_file_and_off_opts_out() {
   wait_until 150 watcher_live "$home" || fail "default-on: the Stop hook never started a watcher cycle: $(cat "$home/hook.err" 2>/dev/null)"
   assert_grep 'watch the fleet for me' "$home/state/.host-mirror.jsonl" "a Claude home without the file must mirror the captain's dialog"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "default-on: the wake was not handled on the engine: $(cat "$home/hook.err" 2>/dev/null; cat "$home/state/.supervision-host.log" 2>/dev/null)"
   first="$home/engine-call.1"
   assert_re '^arg=sonnet$' "$first" "a Claude home without the file must run the Claude engine at its default model"

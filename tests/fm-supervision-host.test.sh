@@ -48,7 +48,7 @@ test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "attended: the host never started a watcher cycle: $(cat "$home/host.out")"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "attended: the wake was not handled on the engine: $(cat "$home/host.out"; cat "$home/state/.supervision-host.log")"
   first="$home/engine-call.1"
   assert_re '^actor=branch$' "$first" "the attended engine must run as the branch actor"
@@ -86,7 +86,7 @@ test_host_stopped_right_after_a_handled_wake_exits_and_frees_the_queue() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "handled then TERM: the host never started a watcher cycle"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "handled then TERM: the wake was not handled on the engine: $(cat "$home/state/.supervision-host.log")"
   pid=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
   [ -n "$pid" ] || fail "fixture: no host record after the handled wake"
@@ -117,7 +117,7 @@ test_engine_in_another_time_zone_handles_its_granted_rows() {
   TZ=UTC0 FM_PROC_ROOT_OVERRIDE="$no_proc" start_host "$home"
   wait_until 150 watcher_live "$home" || fail "engine tz: the host never started a watcher cycle: $(cat "$home/host.out")"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "engine tz: the turn did not end handled: $(cat "$home/state/.supervision-host.log"; cat "$home"/engine-drain.* 2>/dev/null)"
   assert_no_re '	failed	' "$home/state/.supervision-host.log" "engine tz: a turn that reported for its granted rows must not fail"
   assert_no_grep 'no branch-eligible row snapshot' "$home/engine-drain.1" "engine tz: the engine's drain discarded the host's grant"
@@ -164,7 +164,7 @@ test_captain_leaving_mid_turn_keeps_its_captain_outcome_for_the_return() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "go-away: the host never started a watcher cycle"
   append_status "$home" 'finished while the captain left'
-  wait_until 250 handled_at_least "$home" 1 || fail "go-away: the wake was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "go-away: the wake was not handled: $(cat "$home/state/.supervision-host.log")"
   [ -f "$home/state/.afk-contract" ] || fail "fixture: the stub did not record the away posture"
   [ ! -s "$home/host.rc" ] || fail "a captain outcome recorded after the captain left woke main: $(cat "$home/host.out")"
   assert_grep '"verdict":"captain"' "$home/state/branch-outcomes.jsonl" "fixture: the stub did not report a captain outcome"
@@ -400,7 +400,7 @@ test_primary_without_a_verified_mirror_runs_away_only() {
   FM_SUPERVISION_HOST_PRIMARY=grok start_host "$home"
   wait_until 150 watcher_live "$home" || fail "away grok: the host never started a watcher cycle"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "away grok: the wake was not handled on the engine: $(cat "$home/host.out"; cat "$home/state/.supervision-host.log")"
   assert_re '^primary=grok$' "$home/engine-call.1" "the away engine must carry the grok primary pin"
   assert_re '^POSTURE: AWAY\.' "$home/engine-call.1" "the away wake must carry the away tail"
@@ -419,14 +419,14 @@ test_attended_wake_carries_the_dialog_mirror() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "mirror: the host never started a watcher cycle"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 || fail "mirror: the wake was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "mirror: the wake was not handled: $(cat "$home/state/.supervision-host.log")"
   first="$home/engine-call.1"
   assert_re '^arg=MAIN DIALOG MIRROR \(read-only context' "$first" "the wake must open with the dialog mirror"
   assert_re '^\[captain\] keep the export worker on low effort$' "$first" "the mirror must carry the captain's words"
   assert_re '^\[main\] Understood, low effort it is\.$' "$first" "the mirror must carry main's reply"
   assert_no_re 'FIRSTMATE_OP' "$first" "operational input must never be mirrored as dialog"
   append_status "$home" 'step two'
-  wait_until 250 handled_at_least "$home" 2 || fail "mirror: the second wake was not handled"
+  wait_until_deadline 60 handled_at_least "$home" 2 || fail "mirror: the second wake was not handled"
   second="$home/engine-call.2"
   assert_re '^arg=--resume$' "$second" "fixture: the second turn did not resume the conversation"
   assert_no_re 'MAIN DIALOG MIRROR' "$second" "a resumed conversation must not be fed dialog it already has"
@@ -463,7 +463,7 @@ SH
   umask "$old"
   wait_until 150 watcher_live "$home" || fail "private: the host never started a watcher cycle"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 || fail "private: the wake was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "private: the wake was not handled: $(cat "$home/state/.supervision-host.log")"
   assert_re '^\[captain\] watch the fleet for me$' "$home/engine-call.1" "fixture: the wake must carry the captain's words"
   [ "$(mode_of "$home/state/.host-mirror.jsonl")" = 600 ] || fail "the dialog mirror must be owner-only, got $(mode_of "$home/state/.host-mirror.jsonl")"
   [ "$(mode_of "$home/state/.supervision-host-wake")" = 600 ] || fail "the wake file must be owner-only, got $(mode_of "$home/state/.supervision-host-wake")"
@@ -495,7 +495,7 @@ SH
   FM_TEST_SUPERVISION_HOST_CLOCK="$home/park-clock" FM_SUPERVISION_HOST_PARK_SECONDS=120 FM_SUPERVISION_HOST_TURN_TIMEOUT=20 FM_SUPERVISION_ENGINE_GRACE=1 start_session "$home"
   park_again "$home"
   append_status "$home" 'first'
-  wait_until 250 handled_at_least "$home" 1 || fail "mirror boundary: the first wake was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "mirror boundary: the first wake was not handled: $(cat "$home/state/.supervision-host.log")"
   assert_re '^\[captain\] first ask$' "$home/engine-call.1" "fixture: the first turn did not carry the first dialog"
   kill -TERM "$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")"
   wait_until_deadline 60 host_exited "$home" || fail "mirror boundary: the first host did not stop on TERM"
@@ -505,7 +505,7 @@ SH
   echo 0 > "$home/park-clock"
   park_after_stop "$home"
   append_status "$home" 'reaches the boundary'
-  wait_until 400 host_exited "$home" || fail "mirror boundary: the host did not end its park"
+  wait_until_deadline 60 host_exited "$home" || fail "mirror boundary: the host did not end its park"
   assert_re '^supervision-host: cycle boundary - ' "$home/host.out" "fixture: the second host did not exit at its boundary"
   [ "$(engine_calls "$home")" -eq 1 ] || fail "fixture: an engine turn ran at the boundary"
   main_drain_and_ack "$home"
@@ -514,7 +514,7 @@ SH
   echo 0 > "$home/park-clock"
   park_again "$home"
   append_status "$home" 'handled after the boundary'
-  wait_until 250 handled_at_least "$home" 2 || fail "mirror boundary: the next wake was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 2 || fail "mirror boundary: the next wake was not handled: $(cat "$home/state/.supervision-host.log")"
   second="$home/engine-call.2"
   assert_re '^arg=--resume$' "$second" "fixture: the next turn did not resume the conversation"
   assert_re '^\[captain\] second ask, never handed over$' "$second" \
@@ -527,14 +527,14 @@ SH
   echo hang > "$home/stub-mode"
   park_after_stop "$home"
   append_status "$home" 'stopped mid-turn'
-  wait_until 250 test -e "$home/engine-call.3" || fail "mirror boundary: the stopped turn never started"
+  wait_until_deadline 60 test -e "$home/engine-call.3" || fail "mirror boundary: the stopped turn never started"
   assert_re '^\[captain\] third ask, turn stopped$' "$home/engine-call.3" "fixture: the stopped turn did not carry the third dialog"
   kill -TERM "$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")"
   wait_until_deadline 60 host_exited "$home" || fail "mirror boundary: the host did not stop mid-turn on TERM"
   echo handle > "$home/stub-mode"
   park_after_stop "$home"
   append_status "$home" 'handled after the stop'
-  wait_until 250 handled_at_least "$home" 3 || fail "mirror boundary: the wake after the stop was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 3 || fail "mirror boundary: the wake after the stop was not handled: $(cat "$home/state/.supervision-host.log")"
   third="$home/engine-call.4"
   assert_re '^arg=--resume$' "$third" "fixture: the turn after the stop did not resume the conversation"
   assert_re '^\[captain\] third ask, turn stopped$' "$third" "dialog of a turn stopped before its report must reach the next turn"
@@ -552,7 +552,7 @@ SH
   echo handle > "$home/stub-mode"
   park_again "$home"
   append_status "$home" 'handled after no report'
-  wait_until 250 handled_at_least "$home" 4 || fail "mirror boundary: the wake after the unreported turn was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 4 || fail "mirror boundary: the wake after the unreported turn was not handled: $(cat "$home/state/.supervision-host.log")"
   fourth="$home/engine-call.6"
   assert_re '^\[captain\] fourth ask, turn unreported$' "$fourth" "dialog of a turn that recorded no report must reach the next turn"
   pass "host: dialog a turn never completed with its report (a park boundary, a stopped turn, no report) reaches the next turn"
@@ -571,7 +571,7 @@ test_attended_wake_with_an_unreadable_mirror_reaches_main() {
   start_session "$home"
   park_again "$home"
   append_status "$home" 'first'
-  wait_until 250 handled_at_least "$home" 1 || fail "bad mirror: the first wake was not handled: $(cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "bad mirror: the first wake was not handled: $(cat "$home/state/.supervision-host.log")"
   cursor=$(cat "$home/state/.host-mirror-cursor") || fail "fixture: the handled turn committed no mirror cursor"
 
   rm -f "$mirror"
@@ -634,7 +634,7 @@ test_away_wake_is_handled_on_the_engine_and_never_reaches_main() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "away: the host never started a watcher cycle: $(cat "$home/host.out")"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 || fail "away: the wake was not handled: $(cat "$home/host.out"; cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "away: the wake was not handled: $(cat "$home/host.out"; cat "$home/state/.supervision-host.log")"
   lock_pid=$(cat "$home/state/.lock")
 
   first="$home/engine-call.1"
@@ -663,7 +663,7 @@ test_away_wake_is_handled_on_the_engine_and_never_reaches_main() {
 
   echo handle > "$home/stub-mode"
   append_status "$home" 'step two'
-  wait_until 250 handled_at_least "$home" 2 || fail "away: the second wake was not handled"
+  wait_until_deadline 60 handled_at_least "$home" 2 || fail "away: the second wake was not handled"
   session=$(sed -n '/^arg=--session-id$/{n;s/^arg=//p;}' "$first")
   second="$home/engine-call.2"
   assert_re '^arg=--resume$' "$second" "a later turn must resume the conversation"
@@ -739,7 +739,7 @@ test_silent_outcomes_are_not_relayed_when_the_captain_returns() {
     append_status "$home" 'no-change result during a captain return'
 
     if [ "$mode" = return-silent ]; then
-      wait_until 250 handled_at_least "$home" 1 || fail "$mode: the wake was not handled: host=$(cat "$home/host.out" 2>/dev/null) log=$(tail -n 8 "$home/state/.supervision-host.log" 2>/dev/null) report=$(cat "$home/engine-report.log" 2>/dev/null)"
+      wait_until_deadline 60 handled_at_least "$home" 1 || fail "$mode: the wake was not handled: host=$(cat "$home/host.out" 2>/dev/null) log=$(tail -n 8 "$home/state/.supervision-host.log" 2>/dev/null) report=$(cat "$home/engine-report.log" 2>/dev/null)"
       [ ! -s "$home/host.rc" ] || fail "$mode: a silent-only outcome forced a captain handoff: $(cat "$home/host.out")"
       watcher_live "$home" || fail "$mode: the host did not park on its successor"
       host=$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")
@@ -804,7 +804,7 @@ test_outcome_after_the_return_survives_a_host_killed_at_the_turn_end() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "return-first: the host never started a watcher cycle"
   append_status "$home" 'finishing while the captain comes back'
-  wait_until 250 grep -qs 'supervision-host-return:1' "$home/state/.wake-queue" \
+  wait_until_deadline 60 grep -qs 'supervision-host-return:1' "$home/state/.wake-queue" \
     || fail "return-first: the late outcome was never queued: $(cat "$home/engine-report.log" 2>/dev/null)"
   host=$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")
   kill -TERM "$host"
@@ -839,7 +839,7 @@ test_next_host_clears_a_turn_its_killed_predecessor_left() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "killed: the host never started a watcher cycle"
   append_status "$home" 'mid-turn when its host is killed'
-  wait_until 250 grep -qs 'supervision-host-return:1' "$home/state/.wake-queue" || fail "killed: the turn never reported"
+  wait_until_deadline 60 grep -qs 'supervision-host-return:1' "$home/state/.wake-queue" || fail "killed: the turn never reported"
   host=$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")
   engine=$(cut -f1 "$home/state/.supervision-host.engine-pid")
   kill -KILL "$host"
