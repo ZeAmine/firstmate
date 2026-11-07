@@ -11,6 +11,7 @@ fm_hermes_process_matches() {  # <args> [pid]
   else
     read -r -a words <<< "$args"
   fi
+  [ "${#words[@]}" -gt 0 ] || return 1
   for word in "${words[@]}"; do
     if [ "$first" = 1 ]; then
       first=0
