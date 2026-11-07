@@ -392,9 +392,9 @@ fm_os_proc_triple() {  # <pid>
         fm_os_proc_diag_once 'ps cannot execute and no python3 is available for the ps-free identity provider; identity reads fail closed'
         return 1
       fi
-      python3 "$(dirname -- "${BASH_SOURCE[0]}")/fm-procinfo.py" "$1" 2>/dev/null || rc=$?
+      PYTHONCOERCECLOCALE=0 python3 "$(dirname -- "${BASH_SOURCE[0]}")/fm-procinfo.py" "$1" 2>/dev/null || rc=$?
       if [ "$rc" -ne 0 ]; then
-        fm_os_proc_diag_once "ps cannot execute and the ps-free identity provider exited $rc; identity reads fail closed. Reproduce with: python3 $(dirname -- "${BASH_SOURCE[0]}")/fm-procinfo.py $1"
+        fm_os_proc_diag_once "ps cannot execute and the ps-free identity provider exited $rc; identity reads fail closed. Reproduce with: PYTHONCOERCECLOCALE=0 python3 $(dirname -- "${BASH_SOURCE[0]}")/fm-procinfo.py $1"
       fi
       return "$rc"
       ;;

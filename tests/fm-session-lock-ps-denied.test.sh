@@ -684,8 +684,8 @@ test_procinfo_helper_fails_closed() {
 # control byte, in place, with every printable and UTF-8 byte intact, so
 # a byte-for-byte comparison here would pin one procps build instead of
 # the rule and fail on the other. A route that spells control bytes with
-# characters ps itself prints (BSD and the macOS provider render them as
-# ^I / ^J) keeps them through the fold, which is why this touches only
+# characters ps itself prints (including macOS's vis escapes) keeps them
+# through the fold, which is why this touches only
 # the space and non-printable bytes.
 normalize_control_bytes() {  # <text>
   printf '%s' "$1" \
@@ -695,9 +695,12 @@ normalize_control_bytes() {  # <text>
 
 test_control_bytes_match_ps_route() {
   command -v python3 >/dev/null 2>&1 || { pass "control bytes: python3 absent, skipped"; return; }
-  local marker="$TMP_ROOT/control-ready" child i got expected
+  local marker="$TMP_ROOT/control-ready" child i got expected test_locale
   python3 -c 'import os, sys
-os.execv(sys.executable, [os.fsencode(sys.executable), b"-c", b"import sys,time; open(sys.argv[1], chr(119)).close(); time.sleep(40)", os.fsencode(sys.argv[1]), b"tab\tnewline\nhigh\xc3\xa9"])' "$marker" &
+payload = b"tab\tnewline\nhigh\xc3\xa9"
+if sys.platform == "darwin":
+    payload += bytes(range(1, 32)) * 8 + b"\x7f\x80\xff\\"
+os.execv(sys.executable, [os.fsencode(sys.executable), b"-c", b"import sys,time; open(sys.argv[1], chr(119)).close(); time.sleep(40)", os.fsencode(sys.argv[1]), payload])' "$marker" &
   child=$!
   i=0
   while [ ! -f "$marker" ] && [ "$i" -lt 40 ]; do sleep 0.25; i=$((i + 1)); done
@@ -710,6 +713,24 @@ os.execv(sys.executable, [os.fsencode(sys.executable), b"-c", b"import sys,time;
     || { kill "$child"; fail "ps route refused control-byte child"; }
   got=$(bash -c '. "$1"; fm_os_proc_triple "$2"' x "$LIB" "$child") \
     || { kill "$child"; fail "provider refused control-byte child"; }
+  if [ "$(uname -s)" = Darwin ]; then
+    # ps is the independent oracle for libc's locale-sensitive vis format.
+    for test_locale in C en_US.UTF-8; do
+      expected=$(LC_ALL="$test_locale" bash -c '. "$1"; fm_proc_info "$2" || exit; printf "%s\t%s\t%s\n" "$FM_PROC_PPID" "$FM_PROC_COMM" "$FM_PROC_ARGS"' x "$LIB" "$child") \
+        || { kill "$child"; fail "ps refused locale $test_locale"; }
+      got=$(LC_ALL="$test_locale" bash -c '. "$1"; fm_os_proc_triple "$2"' x "$LIB" "$child") \
+        || { kill "$child"; fail "provider refused locale $test_locale"; }
+      [ "$got" = "$expected" ] \
+        || { kill "$child"; fail "identity differs from ps under $test_locale: provider '$got', ps '$expected'"; }
+    done
+    # Python must not coerce a C locale that ps itself leaves unchanged.
+    expected=$(env -u LC_ALL -u LC_CTYPE LANG=C bash -c '. "$1"; fm_proc_info "$2" || exit; printf "%s\t%s\t%s\n" "$FM_PROC_PPID" "$FM_PROC_COMM" "$FM_PROC_ARGS"' x "$LIB" "$child") \
+      || { kill "$child"; fail "ps refused LANG=C"; }
+    got=$(env -u LC_ALL -u LC_CTYPE LANG=C bash -c '. "$1"; fm_os_proc_triple "$2"' x "$LIB" "$child") \
+      || { kill "$child"; fail "provider refused LANG=C"; }
+    [ "$got" = "$expected" ] \
+      || { kill "$child"; fail "Python locale coercion changed identity: provider '$got', ps '$expected'"; }
+  fi
   kill "$child" 2>/dev/null
   wait "$child" 2>/dev/null || :
   # ppid and comm carry no control bytes, so those fields stay a raw
@@ -721,8 +742,8 @@ os.execv(sys.executable, [os.fsencode(sys.executable), b"-c", b"import sys,time;
   # Non-vacuity: every fixture word that sits around a control byte must
   # still arrive from both routes, so a route that swallowed that text
   # cannot pass by matching a loss on the other route. The words are
-  # asserted without their placeholder, because a BSD ps and the macOS
-  # provider spell it ^I / ^J while a Linux one spells it as one byte.
+  # asserted without their placeholder, because macOS uses vis escapes
+  # while Linux spells each control as one byte.
   local word
   for word in tab newline high; do
     case $got in
@@ -821,7 +842,13 @@ os.execv(sys.executable, [sys.executable, "-c", "import sys,time; open(sys.argv[
     [ "$got" = "$expected" ] || fail "$shape argv routes disagree: provider '$got', ps '$expected'"
     args=${got##*$'\t'}
     case "$shape" in
-      one|two) suffix='--resume' ;;
+      one|two)
+        suffix='--resume'
+        if [ "$(uname -s)" = Darwin ]; then
+          suffix="$suffix "
+          [ "$shape" = one ] || suffix="$suffix "
+        fi
+        ;;
       middle) suffix='aa  bb' ;;
       space) suffix='tail ' ;;
     esac
@@ -830,7 +857,7 @@ os.execv(sys.executable, [sys.executable, "-c", "import sys,time; open(sys.argv[
       *) fail "$shape argv lost element spacing: '$args'" ;;
     esac
   done
-  pass "trailing empty argv elements are dropped; interior empties and argument spaces survive"
+  pass "empty argv elements and argument spaces match the platform's ps"
 }
 
 test_unreadable_owner_refuses_acquisition() {
