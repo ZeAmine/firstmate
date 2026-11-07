@@ -93,8 +93,31 @@ for _ in $(seq 1 100); do [ -f "$TMP_ROOT/process/tui_gateway/ready" ] && break;
 native_args=$(ps -o args= -p "$process_pid")
 native_name=$(ps -o comm= -p "$process_pid")
 [ "$native_name" != hermes ] || fail 'identity fixture failed to separate name and module argv'
-[ "$(fm_agent_process_classify unrelated unrelated '' "$process_pid")" = agent ] || fail 'NUL argv identity lost when names/ps args are blind'
-[ "$(fm_agent_process_classify "$native_name" '' "$native_args")" = agent ] || fail 'ps argv identity lost when NUL argv is absent'
+# The pid route reads exact argv boundaries from /proc/<pid>/cmdline when it is
+# readable. macOS has no procfs and the helper's documented ps fallback is
+# deliberately conservative, so a pid-only identity with blank names and args is
+# only contracted where /proc exists; Linux CI keeps this assertion, and the
+# ps-argument assertions below stay cross-platform.
+if [ -r "/proc/$process_pid/cmdline" ]; then
+  [ "$(fm_agent_process_classify unrelated unrelated '' "$process_pid")" = agent ] || fail 'NUL argv identity lost when names/ps args are blind'
+else
+  pass 'pid-only NUL argv identity skipped: no /proc and the ps fallback is conservative by contract'
+fi
+# The ps fallback matches documented interpreter argv[0] forms. macOS execs
+# Python through its app bundle, so a real process there reports
+# .../MacOS/Python instead; that form stays a conservative non-match by
+# contract, so the real-process ps identity is asserted where the host reports
+# a documented form (Linux CI does). The synthetic ps assertions above remain
+# cross-platform.
+native_argv0=${native_args%% *}
+case "${native_argv0##*/}" in
+  python|python[0-9]*)
+    [ "$(fm_agent_process_classify "$native_name" '' "$native_args")" = agent ] || fail 'ps argv identity lost when NUL argv is absent'
+    ;;
+  *)
+    pass "ps argv identity skipped: this host reports interpreter argv[0] '${native_argv0##*/}' outside the documented python forms"
+    ;;
+esac
 [ "$(fm_agent_process_classify "$native_name" '' '')" = other ] || fail 'bare interpreter falsely identified without either argv source'
 kill "$process_pid"
 wait "$process_pid" 2>/dev/null || true
