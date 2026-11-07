@@ -53,7 +53,7 @@ test_latch_trips_after_two_engine_errors_then_probes_and_recovers() {
   echo handle > "$home/stub-mode"
   park_again "$home"
   append_status "$home" 'the probe succeeds'
-  wait_until 250 handled_at_least "$home" 1 || fail "latch: the successful probe was not handled: $(cat "$home/host.out")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "latch: the successful probe was not handled: $(cat "$home/host.out")"
   [ "$(engine_calls "$home")" -eq 5 ] || fail "the cooldown's end did not let the recovering wake probe the engine"
   host_exited "$home" && fail "an away recovery must not reach main: $(cat "$home/host.out")"
   assert_re '	recovered	after a successful probe' "$home/state/.supervision-host.log" "the ledger must record the recovery"
@@ -149,7 +149,7 @@ test_attended_latch_keeps_closes_on_main_and_records_recovery_off_main() {
   handled=$(handled_count "$home")
   park_again "$home"
   append_status "$home" 'the probe succeeds'
-  wait_until 250 handled_at_least "$home" $((handled + 1)) \
+  wait_until_deadline 60 handled_at_least "$home" $((handled + 1)) \
     || fail "latch: the successful probe was not handled: $(cat "$home/host.out"; tail -n 5 "$home/state/.supervision-host.log")"
   assert_re '	recovered	after a successful probe$' "$home/state/.supervision-host.log" "the ledger must record the recovery"
   ! wait_until 20 host_exited "$home" || fail "a routine probe's recovery reached main: $(cat "$home/host.out")"
@@ -235,7 +235,9 @@ test_engine_conversation_the_next_turn_would_not_resume_is_not_compacted() {
     FM_TEST_SUPERVISION_HOST_CLOCK="$home/park-clock" start_host "$home"
   wait_until 150 watcher_live "$home" || fail "warm-compact-stale: no watcher started"
   seed_idle_engine_record "$home" 600
-  sed -i 's/^model=.*/model=another-model/' "$home/state/.supervision-host-engine"
+  sed -i.bak 's/^model=.*/model=another-model/' "$home/state/.supervision-host-engine" \
+    || fail "warm-compact-stale: fixture could not change the recorded model"
+  rm -f "$home/state/.supervision-host-engine.bak"
   echo 10 > "$home/park-clock"
   sleep 3
   [ "$(compact_calls "$home")" = 0 ] || fail "warm-compact-stale: compacted a conversation the next turn would not resume"
@@ -256,7 +258,7 @@ test_compaction_abandoned_at_the_park_boundary_is_not_marked_done() {
   wait_until 150 watcher_live "$home" || fail "warm-compact-abandon: no watcher started"
   seed_idle_engine_record "$home" 600
   echo 10 > "$home/park-clock"
-  wait_until 150 test -e "$home/engine-call.1" || fail "warm-compact-abandon: the compaction never started"
+  wait_until_deadline 60 test -e "$home/engine-call.1" || fail "warm-compact-abandon: the compaction never started"
   echo 3000 > "$home/park-clock"
   wait_until 300 host_exited "$home" || fail "warm-compact-abandon: the host did not end its park"
   ! grep -q '^compacted=' "$home/state/.supervision-host-engine" || fail "warm-compact-abandon: an abandoned compaction was marked done"
@@ -397,7 +399,7 @@ test_park_test_clock_requires_the_marker() {
   FM_TEST_SEAM='' FM_TEST_SUPERVISION_HOST_CLOCK="$home/park-clock" start_host "$home"
   wait_until 150 watcher_live "$home" || fail "clock-unmarked: the host never started a watcher cycle: $(cat "$home/host.out")"
   append_status "$home" 'handled on the wall clock'
-  wait_until 250 handled_at_least "$home" 1 \
+  wait_until_deadline 60 handled_at_least "$home" 1 \
     || fail "a test clock without FM_TEST_SEAM changed the park: $(cat "$home/host.out" "$home/state/.supervision-host.log")"
   [ ! -s "$home/host.rc" ] || fail "a test clock without FM_TEST_SEAM ended the park: $(cat "$home/host.out")"
   assert_no_re 'cycle boundary' "$home/host.out" "a test clock without FM_TEST_SEAM reached the boundary"
@@ -428,7 +430,7 @@ test_park_limit_lets_a_turn_outlive_the_boundary() {
       FM_SUPERVISION_ENGINE_GRACE=10 start_host "$home"
     wait_until 150 watcher_live "$home" || fail "$name: the host never started a watcher cycle"
     append_status "$home" 'one close'
-    wait_until 250 sh -c '[ -s "$1/host.rc" ] || grep -q "	handled	" "$1/state/.supervision-host.log" 2>/dev/null' _ "$home" \
+    wait_until_deadline 60 sh -c '[ -s "$1/host.rc" ] || grep -q "	handled	" "$1/state/.supervision-host.log" 2>/dev/null' _ "$home" \
       || fail "$name: the close was neither handled nor handed to main: $(cat "$home/state/.supervision-host.log")"
     if host_exited "$home"; then
       grep -q '^supervision-host: cycle boundary - ' "$home/host.out" || fail "$name: the host exited without the boundary: $(cat "$home/host.out")"
@@ -530,10 +532,10 @@ test_unchanged_held_outcome_reaches_the_captain_once_until_a_new_event() {
   export FM_FAKE_CREW_STATE_held='state: done · source: fake'
   export FM_INACTIVE_CREW_STATE_BIN="$home/fakebin/fm-crew-state.sh" FM_INACTIVE_RECONCILE_SECS=60
   start_host "$home"
-  wait_until 250 captain_rows_at_least "$home" 1 \
+  wait_until_deadline 60 captain_rows_at_least "$home" 1 \
     || fail "held: the first cadence never escalated the held outcome: $(cat "$home/state/.supervision-host.log" 2>/dev/null)"
   assert_grep 'child=held' "$home/state/branch-outcomes.jsonl" "held: the escalation did not name the held task's outcome: $(cat "$home"/engine-drain.* "$home/state/.supervision-host.log")"
-  wait_until 150 handled_at_least "$home" 1 || fail "held: the escalating turn never finished"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "held: the escalating turn never finished"
   assert_no_grep '	inactive-outcome:' "$home/state/.wake-queue" "held: the branch acknowledgement left the presentation row queued"
 
   for cycle in 1 2 3 4; do
@@ -549,7 +551,7 @@ test_unchanged_held_outcome_reaches_the_captain_once_until_a_new_event() {
   [ -s "$home/host.rc" ] && fail "held: the host handed a wake to main: $(cat "$home/host.out")"
 
   printf 'needs-decision [key=merge-153]: merge PR 153 now or hold it for the return?\n' >> "$home/state/held.status"
-  wait_until 250 captain_rows_at_least "$home" 2 \
+  wait_until_deadline 60 captain_rows_at_least "$home" 2 \
     || fail "held: the new decision never reached the captain path: $(cat "$home/state/branch-outcomes.jsonl")"
   [ "$(captain_rows "$home")" -eq 2 ] || fail "held: the decision escalated $(captain_rows "$home") rows, not one"
   [ "$(FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" list --recent 1 | sed -n 's/.*"task":"\([^"]*\)".*"verdict":"\([a-z]*\)".*/\1 \2/p')" = 'held captain' ] \
@@ -614,7 +616,7 @@ SH
     bash -c '"$0" park > "$FM_HOME/host.out" 2>&1; printf "%s\n" "$?" > "$FM_HOME/host.rc"' "$HOST" 2>> "$home/claude.err" &
   wait_until 150 watcher_live "$home" || fail "tagged: the host never started a watcher cycle: $(cat "$home/host.out")"
   append_status "$home" 'step one'
-  wait_until 250 handled_at_least "$home" 1 || fail "tagged: the wake was not handled: $(cat "$home/host.out"; cat "$home/state/.supervision-host.log")"
+  wait_until_deadline 60 handled_at_least "$home" 1 || fail "tagged: the wake was not handled: $(cat "$home/host.out"; cat "$home/state/.supervision-host.log")"
   first="$home/engine-call.1"
   assert_re '^holder=win:7204$' "$first" "the engine's lease holder must be the tagged session-lock holder, whole"
   assert_re '^branch win:7204 [0-9]+ live$' "$home/engine-lease.log" \

@@ -350,8 +350,18 @@ fm_backend_cmux_surface_id_for_workspace() {  # <workspace_id>
 # workspace/surface/pane create all default focus to false) - no
 # focus-restore dance is needed, unlike zellij. Echoes "<workspace_id>
 # <surface_id>" on success.
+#
+# Post-create id resolution is a BOUNDED RETRY, not a single lookup. Verified
+# on the captain's real cmux 0.65.2 (2026-11-06): `new-workspace` returns
+# before the new workspace is listed by `workspace list`, so an immediate
+# lookup found nothing even though the workspace HAD been created - the
+# identical lookup run a few milliseconds later resolved it every time
+# (measured window well under 50ms; 12/12 later lookups succeeded, while the
+# immediate one failed 3/3). Without the retry that race is a hard spawn
+# failure that also leaks the created workspace. 20 x 50ms is the bounded
+# budget; a genuinely unresolvable title still fails at the cost of ~1s.
 fm_backend_cmux_create_task() {  # <label> <cwd>
-  local label=$1 cwd=$2 title dup out wsid sfid
+  local label=$1 cwd=$2 title dup out wsid sfid i
   title=$(fm_backend_cmux_scoped_title "$label")
   dup=$(fm_backend_cmux_workspace_id_for_label "$title")
   if [ -n "$dup" ]; then
@@ -362,7 +372,11 @@ fm_backend_cmux_create_task() {  # <label> <cwd>
     echo "error: cmux new-workspace failed for '$title': $out" >&2
     return 1
   }
-  wsid=$(fm_backend_cmux_workspace_id_for_label "$title")
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    wsid=$(fm_backend_cmux_workspace_id_for_label "$title")
+    [ -n "$wsid" ] && break
+    sleep 0.05
+  done
   [ -n "$wsid" ] || { echo "error: could not resolve a cmux workspace id for '$title' after creation" >&2; return 1; }
   sfid=$(fm_backend_cmux_surface_id_for_workspace "$wsid")
   [ -n "$sfid" ] || { echo "error: could not resolve the default surface for cmux workspace '$title' ($wsid)" >&2; return 1; }
