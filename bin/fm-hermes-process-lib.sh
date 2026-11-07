@@ -3,6 +3,9 @@
 # Match only argv[0], a Node TUI script argument, or Python's exact -m module;
 # never a later prompt argument or a working-directory path. Linux argv fields
 # preserve spaces; the ps fallback conservatively rejects ambiguous paths.
+# An absent or unreadable argv is a non-match (return 1), never a fatal
+# empty-array expansion that aborts a `set -u` caller - tests/fm-hermes-harness.test.sh
+# keeps that contract under stock Bash.
 fm_hermes_process_matches() {  # <args> [pid]
   local args=${1:-} pid=${2:-} word first=1 interpreter='' module=0
   local words=()
