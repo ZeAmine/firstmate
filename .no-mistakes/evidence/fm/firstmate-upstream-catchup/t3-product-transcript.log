@@ -1,0 +1,55 @@
+=== T3 0.1.3 (merged t3_thread_configure + t3_pending_request, compact catalog with omittedModels)
+$ fm-t3-mcp status
+  exit=0
+  stderr: warning: T3 telemetry at http://127.0.0.1:56968 is on; run the server that hosts Firstmate workers with T3CODE_TELEMETRY_ENABLED=false (docs/t3code-backend.md)
+  {"ok":true,"origin":"http://127.0.0.1:56968","access":"full-access","expiresAt":"2026-12-07T16:15:27.000Z","daysLeft":30,"environmentId":"env-fake-1","serverVersion":"0.0.46-nightly.fake","recordedServerVersion":"0.0.46-nightly.fake","telemetry":"on"}
+$ fm-t3-mcp project-ensure --root /private/var/folders/qb/g5ylj4zs01v_yjlz9xww4mfr0000gq/T/fm-t3-transcript.VDQtHS/proj
+  exit=0
+  {"ok":true,"projectId":"mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604","created":true}
+$ fm-t3-mcp resolve-selection --harness claude --instance claudeAgent --model default --effort high --project mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604
+  exit=0
+  {"ok":true,"driverKind":"claudeAgent","selection":{"instanceId":"claudeAgent","model":"claude-sonnet-5","options":[{"id":"fastMode","value":true},{"id":"effort","value":"high"}]}}
+$ fm-t3-mcp launch --project mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604 --title probe --model-selection {"instanceId":"claudeAgent","model":"claude-sonnet-5","options":[{"id":"effort","value":"high"}]} --worktree /private/var/folders/qb/g5ylj4zs01v_yjlz9xww4mfr0000gq/T/fm-t3-transcript.VDQtHS/worktree
+  exit=0
+  {"ok":true,"threadId":"mcp:2ae9e585-b7fa-41f9-a771-a8792181a082","projectId":"mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604","instanceId":"claudeAgent","model":"claude-sonnet-5","runId":null,"status":"idle","environmentId":"env-fake-1","origin":"http://127.0.0.1:56968","serverVersion":"0.0.46-nightly.fake"}
+$ fm-t3-mcp requests --thread thread-q
+  exit=0
+  {"ok":true,"threadId":"thread-q","pendingRequestCount":1,"questions":[{"requestId":"req-question","questions":[{"id":"q1","header":"Pick","question":"Which?"}]}],"approvals":0,"signature":"q:req-question;a:0"}
+$ fm-t3-mcp respond --thread thread-q --request req-question --answers-file /private/var/folders/qb/g5ylj4zs01v_yjlz9xww4mfr0000gq/T/fm-t3-transcript.VDQtHS/answers
+  exit=0
+  {"ok":true,"threadId":"thread-q","requestId":"req-question"}
+  -- server saw configuration/answer tools:
+  t3_thread_configure: {"threadId":"mcp:2ae9e585-b7fa-41f9-a771-a8792181a082"} 
+  t3_pending_request actions: list read respond
+  search for omitted model: 1 capability call(s)
+
+=== refusals the compact catalog must enforce
+$ fm-t3-mcp resolve-selection --harness claude --instance claudeAgent --model claude-haiku-5-5 --effort ultra --project mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604
+  exit=4
+  stderr: fm-t3-mcp: backend=t3code cannot pass effort 'ultra' to harness 'claude': option 'effort' value 'ultra' is not one of low, medium, high, xhigh, max for model claude-haiku-5-5
+  {"ok":false,"error":{"code":"effort_unsupported","message":"backend=t3code cannot pass effort 'ultra' to harness 'claude': option 'effort' value 'ultra' is not one of low, medium, high, xhigh, max for model claude-haiku-5-5"}}
+$ fm-t3-mcp resolve-selection --harness claude --instance claudeAgent --model claude-none --effort default --project mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604
+  exit=4
+  stderr: fm-t3-mcp: T3 instance 'claudeAgent' does not list model 'claude-none'; pass --model with a slug from its catalog
+  {"ok":false,"error":{"code":"model_unknown","message":"T3 instance 'claudeAgent' does not list model 'claude-none'; pass --model with a slug from its catalog"}}
+
+=== T3 0.1.0 legacy world (typed type/options catalog, separate pending-request tools)
+$ fm-t3-mcp status
+  exit=0
+  stderr: warning: T3 telemetry at http://127.0.0.1:56968 is on; run the server that hosts Firstmate workers with T3CODE_TELEMETRY_ENABLED=false (docs/t3code-backend.md)
+  {"ok":true,"origin":"http://127.0.0.1:56968","access":"full-access","expiresAt":"2026-12-07T16:15:27.000Z","daysLeft":30,"environmentId":"env-fake-1","serverVersion":"0.0.46-nightly.fake","recordedServerVersion":"0.0.46-nightly.fake","telemetry":"on"}
+$ fm-t3-mcp launch --project mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604 --title legacy-probe --model-selection {"instanceId":"claudeAgent","model":"claude-sonnet-5","options":[{"id":"effort","value":"high"}]} --worktree /private/var/folders/qb/g5ylj4zs01v_yjlz9xww4mfr0000gq/T/fm-t3-transcript.VDQtHS/worktree
+  exit=0
+  {"ok":true,"threadId":"mcp:03ddb5ef-3308-4c72-8ca8-24ffc48fb4bd","projectId":"mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604","instanceId":"claudeAgent","model":"claude-sonnet-5","runId":null,"status":"idle","environmentId":"env-fake-1","origin":"http://127.0.0.1:56968","serverVersion":"0.0.46-nightly.fake"}
+$ fm-t3-mcp requests --thread thread-q
+  exit=0
+  {"ok":true,"threadId":"thread-q","pendingRequestCount":1,"questions":[{"requestId":"req-question","questions":[{"id":"q1","header":"Pick","question":"Which?"}]}],"approvals":0,"signature":"q:req-question;a:0"}
+$ fm-t3-mcp respond --thread thread-q --request req-question --answers-file /private/var/folders/qb/g5ylj4zs01v_yjlz9xww4mfr0000gq/T/fm-t3-transcript.VDQtHS/answers
+  exit=0
+  {"ok":true,"threadId":"thread-q","requestId":"req-question"}
+$ fm-t3-mcp resolve-selection --harness claude --instance claudeAgent --model claude-sonnet-5 --effort high --project mcp:proj-9b5c1c37-8042-47de-b965-6bb4a0dac604
+  exit=0
+  {"ok":true,"driverKind":"claudeAgent","selection":{"instanceId":"claudeAgent","model":"claude-sonnet-5","options":[{"id":"effort","value":"high"}]}}
+  -- server saw legacy tools:
+  t3_thread_configuration: {"threadId":"mcp:03ddb5ef-3308-4c72-8ca8-24ffc48fb4bd"} 
+  t3_pending_request_respond answers: {"threadId":"thread-q","requestId":"req-question","answers":{"q1":"a"}}

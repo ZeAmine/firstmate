@@ -1,0 +1,10 @@
+### stock bash version
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin26)
+
+### pre-fix helper (5abbcca8^) under /bin/bash 3.2 set -u
+/var/folders/qb/g5ylj4zs01v_yjlz9xww4mfr0000gq/T/tmp.3Cpt9xcc78/prefix-lib.sh: line 6: words[@]: unbound variable
+exit=1
+
+### fixed helper (HEAD) under /bin/bash 3.2 set -u
+caller-survived rc=1
+exit=0

@@ -1,0 +1,14 @@
+### helper under test: bin/fm-hermes-process-lib.sh with the flattened ps reader deliberately regressed
+### (read -r -a words <<< "$args"  ->  read -r -a words <<< "")
+  local words=()
+  if [ -n "$pid" ] && [ -r "/proc/$pid/cmdline" ]; then
+    while IFS= read -r -d '' word; do words+=("$word"); done < "/proc/$pid/cmdline"
+  else
+    read -r -a words <<< ""
+  fi
+  [ "${#words[@]}" -gt 0 ] || return 1
+  for word in "${words[@]}"; do
+
+### bash tests/fm-hermes-harness.test.sh (macOS)
+not ok - structural identity lost: node /opt/hermes-agent/ui-tui/dist/entry.js
+regressed-suite-exit=1

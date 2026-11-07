@@ -1,0 +1,52 @@
+=== required ancestors of 8eaaeed7
+ancestor OK  60099843e469d84bcd2465d97635dfedfe200d6a  fix(cmux): retry the post-create workspace lookup on cmux 0.65.2
+ancestor OK  bf05a4fcd69b8bb27f261177eac4abb57f98aa1b  fix(bin): refresh stale remote refs before teardown refuses landed work (#8030)
+ancestor OK  b144b6db38ec51cfd07c019ed1fe82cd14dccba8  no-mistakes(ci): Captain, fixed failTools to check incoming tool names before translation, preserving legacy fallback. Added 12 regression cases covering configuration, all pending-request actions, and precedence. The regression failed before the fix. The full MCP suite, ShellCheck, syntax checks, and git diff --check now pass. Changes remain within the worktree
+ancestor OK  fb2fc28784aa6e0a347f054175d884b509dd4caa  fix(t3code): accept T3 0.1.3 merged tools and compact catalog
+ancestor OK  08eea7268cc3cb2f955ab9215617b6f135a0a341  no-mistakes(review): Prefer legacy T3 configuration readers in read-back usage which includes the launch method; T3 now lists both its configuration reader and writer and uses the reader when configured for legacy T3. Corrected the legacy fake tool list and added test cases for merged, legacy, and replaced tool lists. Verified ordinary launch read-back paths and legacy writer validation using the focused MCP test file
+ancestor OK  62030a560e87d7640b4e26118f1f1de1e17277a6  no-mistakes(document): Correct T3 compatibility documentation
+
+=== cmux adapter blob at 60099843 vs HEAD
+60099843: 5e6aa166eb11a4498ee1531c9e155a038432f2a1
+HEAD    : 5e6aa166eb11a4498ee1531c9e155a038432f2a1
+cmux blob IDENTICAL
+
+=== personal configuration paths stay ignored (real git consumer: git check-ignore)
+.env                     -> .gitignore:12:.env	.env
+config/tools.json        -> .gitignore:13:config/	config/tools.json
+data/report.md           -> .gitignore:3:data/	data/report.md
+state/afk                -> .gitignore:2:state/	state/afk
+projects/foo             -> .gitignore:1:projects/	projects/foo
+.no-mistakes/run         -> .gitignore:5:.no-mistakes/	.no-mistakes/run
+
+=== fast-forward install path in a disposable clone (real git consumer)
+astuce : Utilisation de 'master' comme nom de la branche initiale. Le nom de la branche
+astuce : par défaut peut changer. Pour configurer le nom de la branche initiale
+astuce : pour tous les nouveaux dépôts, et supprimer cet avertissement, lancez :
+astuce :
+astuce : 	git config --global init.defaultBranch <nom>
+astuce :
+astuce : Les noms les plus utilisés à la place de 'master' sont 'main', 'trunk' et
+astuce : 'development'. La branche nouvellement créée peut être rénommée avec :
+astuce :
+astuce : 	git branch -m <nom>
+Note : basculement sur '8eaaeed79b76b41c27206f904258a0b778a9f722'.
+
+Vous êtes dans l'état « HEAD détachée ». Vous pouvez visiter, faire des modifications
+expérimentales et les valider. Il vous suffit de faire un autre basculement pour
+abandonner les commits que vous faites dans cet état sans impacter les autres branches
+
+Si vous voulez créer une nouvelle branche pour conserver les commits que vous créez,
+il vous suffit d'utiliser l'option -c de la commande switch comme ceci :
+
+  git switch -c <nom-de-la-nouvelle-branche>
+
+Ou annuler cette opération avec :
+
+  git switch -
+
+Désactivez ce conseil en renseignant la variable de configuration advice.detachedHead à false
+
+start: 60099843
+after: 8eaaeed7
+fast-forward to the validated head SUCCEEDED (60099843 remains an ancestor)

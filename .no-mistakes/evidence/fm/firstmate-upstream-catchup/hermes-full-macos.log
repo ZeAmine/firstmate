@@ -1,0 +1,21 @@
+FM_TEST_BEGIN 2026-11-07T16:13:42Z tests/fm-hermes-harness.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - pid-only NUL argv identity skipped: no /proc and the ps fallback is conservative by contract
+ok - ps argv identity skipped: this host reports interpreter argv[0] 'Python' outside the documented python forms
+ok - worker-only capability and anchored process identity
+ok - an absent argv is a non-match that leaves the set -u caller running
+ok - profile validation and read-only idle-gateway coexistence check
+ok - startup consent only confirms a complete native offer with No thanks already selected
+error: stale busy-state gen for worker (event rejected)
+ok - native hook overlay preserves hooks and enforces session/generation binding
+ok - profile-prefixed composer requires native ready status and preserves drafts
+ok - scout spawn carries native profile, interactive brief, hook overlay and metadata
+ok - stalled Hermes launch stops its pane before the task record is removed
+ok - stalled Hermes launch whose pane cannot be closed keeps its task record
+FM_TEST_END 2026-11-07T16:13:57Z tests/fm-hermes-harness.test.sh exit=0 duration_ms=14764 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=14845
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=14764 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-hermes-harness.test.sh duration_ms=14764
+
+real	0m14.910s
+user	0m3.132s
+sys	0m3.382s

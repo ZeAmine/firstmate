@@ -1,0 +1,6 @@
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin26)
+1..1
+ok - an absent argv is a non-match that leaves the set -u caller running
+FM_TEST_COMPLETE
+fm-test-tap-verify: fm-hermes-harness.test.sh: 1 planned, 1 ok, complete, exit 0
+ci-step-exit=0

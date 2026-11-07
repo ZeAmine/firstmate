@@ -1,0 +1,24 @@
+=== case: race: workspace becomes visible after 3 lagging lookups (new workspace hidden from 3 immediate list lookups)
+exit=0
+stdout+stderr: bbbbbbbb-1111-1111-1111-111111111111 cccccccc-2222-2222-2222-222222222222
+elapsed_ms=599
+workspace-list calls: 5
+new-workspace calls: 1
+list-panes calls: 1
+
+=== case: adversarial: workspace never becomes visible (bounded, no hang) (new workspace hidden from 999 immediate list lookups)
+exit=1
+stdout+stderr: error: could not resolve a cmux workspace id for 'fm-firstmate-72962fbd-race' after creation
+elapsed_ms=4724
+workspace-list calls: 21
+new-workspace calls: 1
+list-panes calls: 0
+
+=== case: control: pre-fix adapter with one immediate lookup, same 3-lookup lag (new workspace hidden from 3 immediate list lookups)
+exit=1
+stdout+stderr: error: could not resolve a cmux workspace id for 'fm-firstmate-3819a3c1-race' after creation
+elapsed_ms=102
+workspace-list calls: 2
+new-workspace calls: 1
+list-panes calls: 0
+
